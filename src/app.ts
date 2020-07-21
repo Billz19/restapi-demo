@@ -5,6 +5,7 @@ import bodyParser from "body-parser"
 import { connect } from 'mongoose'
 import { join } from "path";
 import multer from "multer";
+import {socket} from "./socket"
 
 const app = express();
 
@@ -55,5 +56,9 @@ connect('mongodb://localhost:27017/messages', {
     useUnifiedTopology: true
 }).then(() => {
     console.log('Connected');
-    app.listen(4040)
+   const server = app.listen(4040);
+   const io = socket.init(server);
+   io.on('connection',(socket:any)=>{
+    console.log('Client connected')
+   })
 }).catch(error => console.log(error))

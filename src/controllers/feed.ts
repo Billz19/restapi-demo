@@ -5,7 +5,7 @@ import User, { UserDocument } from "../models/User";
 import { unlink } from "fs";
 import { join } from "path";
 import { handleErrors, prepareError } from "../utils/utils";
-import { Document } from "mongoose";
+import { socket } from "../socket";
 const clearImage = (imagePath: string) => {
     unlink(join(__dirname, '..', '..', imagePath), (error => console.log('clearImage', error)))
 }
@@ -16,7 +16,7 @@ export const getPosts = (req: Request, resp: Response, next: NextFunction) => {
     let totalItems: number;
     Post.find().countDocuments().then(count => {
         totalItems = count;
-        return Post.find().skip((+currentPage - 1) * perPage).limit(perPage)
+        return Post.find().populate('creator').sort({createdAt:-1}).skip((+currentPage - 1) * perPage).limit(perPage)
     })
         .then(posts => {
             resp.status(200).json({ message: 'Posts fetched successfully!', posts, totalItems });
@@ -33,7 +33,6 @@ export const createPost = (req: Request, resp: Response, next: NextFunction) => 
     }
     const { title, content } = req.body;
     const userId = (req as any).userId;
-    console.log('userId', userId);
     const imageUrl = req.file.path;
     const post = new Post({
         title,
@@ -49,6 +48,7 @@ export const createPost = (req: Request, resp: Response, next: NextFunction) => 
         connectedUser.posts!.push(post);
         return connectedUser.save()
     }).then(_ => {
+        socket.getIO().emit('posts', { action: 'create', post: { ...(post as any)._doc, creator: { _id: userId, name: connectedUser.name } } })
         resp.status(201).json({
             message: 'Post created successfully',
             post,
@@ -62,7 +62,7 @@ export const createPost = (req: Request, resp: Response, next: NextFunction) => 
 
 export const getPost = (req: Request, resp: Response, next: NextFunction) => {
     const id = req.params.id;
-    Post.findById(id).then(post => {
+    Post.findById(id).populate('creator').then(post => {
         if (!post) {
             throw prepareError('Could not find post', 404)
         }
@@ -84,11 +84,11 @@ export const updatePost = (req: Request, resp: Response, next: NextFunction) => 
     if (!imageUrl) {
         throw prepareError('File messing', 422)
     }
-    Post.findById(id).then((post: PostDocument | null) => {
+    Post.findById(id).populate('creator').then((post: PostDocument | null) => {
         if (!post) {
             throw prepareError('Could not find post', 404);
         }
-        if (post.creator!.toString() !== (req as any).userId) {
+        if ((post.creator! as any)._id.toString() !== (req as any).userId) {
             throw prepareError('Not authorized', 403);
         }
         if (imageUrl !== post.imageUrl) {
@@ -101,6 +101,7 @@ export const updatePost = (req: Request, resp: Response, next: NextFunction) => 
         return post.save();
     })
         .then(resultPost => {
+            socket.getIO().emit('posts', { action: 'update', post: resultPost });
             resp.status(200).json({ message: 'Post updated!', post: resultPost })
         }).catch(error => handleErrors(next, error))
 }
@@ -128,6 +129,7 @@ export const deletePost = (req: Request, resp: Response, next: NextFunction) => 
         (loggedUser.posts! as any).pull(id);
         return loggedUser.save();
     }).then(_ => {
+        socket.getIO().emit('posts',{action:'delete', post: id})
         resp.status(200).json({ message: 'Post deleted successfully' });
     }).catch(error => handleErrors(next, error));
 }

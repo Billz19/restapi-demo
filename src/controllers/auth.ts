@@ -46,3 +46,14 @@ export const login = (req: Request, resp: Response, next: NextFunction) => {
         resp.status(200).json({ token, userId: loggedUser._id.toString() });
     }).catch(error => handleErrors(next, error))
 }
+
+
+export const getStatus = async (req: Request, resp: Response, next: NextFunction) => {
+    const userId = (req as any).userId;
+    try {
+        const user = await User.findById(userId) as UserDocument;
+        resp.status(200).json({status:user.status})
+    } catch (error) {
+        handleErrors(next,error);
+    }
+}

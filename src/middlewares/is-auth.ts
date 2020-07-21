@@ -4,7 +4,7 @@ import { verify } from "jsonwebtoken";
 
 
 const isAuth = (req:Request,resp:Response,next:NextFunction) => {
-    const authHeader = req.get('Authorization')
+    const authHeader = req.get('Authorization');
     if(!authHeader){
         throw prepareError('Not authenticated',401)
     }

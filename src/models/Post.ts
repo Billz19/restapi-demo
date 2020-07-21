@@ -5,6 +5,7 @@ export interface PostDocument extends Document {
     content?: string;
     imageUrl?: string;
     creator?: {
+        _id: string;
         name: string
     } | string
 }

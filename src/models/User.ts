@@ -5,6 +5,7 @@ export interface UserDocument extends Document {
     email ?: string;
     password ?: string;
     name ?: string;
+    status?: string;
     posts ?: PostDocument[];
 }
 
@@ -19,6 +20,10 @@ const userSchema = new Schema({
     },
     name: {
         type: String,
+        required: true
+    },
+    status:{
+        type:String,
         default: "I'm new"
     },
     posts: [{
